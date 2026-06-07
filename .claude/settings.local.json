@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude config *)",
+      "PowerShell(claude config *)",
+      "PowerShell(npm run *)",
+      "PowerShell(cd \"C:\\\\Users\\\\김학준\\\\Desktop\\\\입사지원도우미\" && Start-Process powershell -ArgumentList \"-NoExit\", \"-Command\", \"npm run dev\" -WindowStyle Normal)",
+      "WebFetch(domain:localhost)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:5174/\" -UseBasicParsing | Select-Object StatusCode, StatusDescription, @{N='BodySnippet';E={$_.Content.Substring\\(0, [Math]::Min\\(500, $_.Content.Length\\)\\)}})",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:5174\" -UseBasicParsing -TimeoutSec 5; Write-Host \"STATUS: $\\($r.StatusCode\\)\"; Write-Host $r.Content.Substring\\(0,300\\) } catch { Write-Host \"ERROR: $_\" })",
+      "PowerShell($res = Invoke-WebRequest -Uri \"https://www.jobplanet.co.kr/companies?query=카카오\" -Headers @{ \"User-Agent\" = \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/125.0.0.0 Safari/537.36\"; \"Accept-Language\" = \"ko-KR,ko;q=0.9\" } -UseBasicParsing -TimeoutSec 10; $res.Content | Select-String -Pattern '\\(rating|score|star|평점|총점|\\\\d\\\\.\\\\d\\)' -AllMatches | Select-Object -First 30 | ForEach-Object { $_.Line.Trim\\(\\).Substring\\(0, [Math]::Min\\(200, $_.Line.Trim\\(\\).Length\\)\\) })",
+      "Bash(npm run *)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":517\")",
+      "Bash(findstr LISTENING)",
+      "Bash(npx ngrok *)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # 취준 도우미 (Job Application Helper)
 
-> **Last Updated:** 2026-06-24 (세션 종료 시 자동 업데이트)
+> **Last Updated:** 2026-06-09 (세션 종료 시 자동 업데이트)
 > 이 파일은 세션 종료 시 자동으로 업데이트됩니다.
 
 ---
@@ -11,7 +11,9 @@
 
 - **기술 스택:** React 18 + Vite + Tailwind CSS v3 + React Router v6
 - **AI:** Claude API (claude-sonnet-4-6) — 자소서 자동 생성
-- **데이터:** localStorage (서버 없음, 완전 클라이언트)
+- **백엔드:** Vercel 서버리스 함수 (`api/claude.js`, `api/proxy.js`)
+- **데이터:** localStorage (완전 클라이언트, 서버 DB 없음)
+- **배포:** GitHub (`key721114-cloud/jobapp`) + Vercel (배포 준비 완료)
 - **실행:** `npm run dev` → http://localhost:5173
 
 ---
@@ -20,6 +22,9 @@
 
 ```
 입사지원도우미/
+├── api/                             # Vercel 서버리스 함수
+│   ├── claude.js                    # Claude API 프록시 (ANTHROPIC_API_KEY 환경변수 사용)
+│   └── proxy.js                     # 채용공고 URL 크롤링 서버사이드 프록시
 ├── src/
 │   ├── App.jsx                      # 라우터 루트
 │   ├── main.jsx                     # 진입점
@@ -39,16 +44,18 @@
 │   ├── hooks/
 │   │   └── useLocalStorage.js       # localStorage 동기화 훅
 │   └── utils/
-│       ├── claudeApi.js             # Claude API fetch 래퍼
+│       ├── claudeApi.js             # /api/claude 서버 프록시 호출 래퍼
 │       └── storage.js               # localStorage 키 상수 + generateId
 ├── .claude/
 │   ├── settings.json                # Stop 훅 (CLAUDE.md 자동 업데이트)
-│   └── settings.local.json          # 로컬 권한 설정
+│   └── settings.local.json          # 로컬 권한 설정 (.gitignore 제외)
 ├── CLAUDE.md                        # 이 파일
+├── vercel.json                      # Vercel 배포 설정 (SPA 라우팅)
 ├── package.json
 ├── vite.config.js
 ├── tailwind.config.js
-└── postcss.config.js
+├── postcss.config.js
+└── .gitignore
 ```
 
 ---
@@ -62,7 +69,6 @@
 | `jah_experiences` | `Experience[]` | STAR 기법 경험 목록 |
 | `jah_companies` | `Company[]` | 지원 회사 목록 |
 | `jah_cover_letters` | `CoverLetter[]` | 생성된 자소서 목록 |
-| `jah_api_key` | `string` | Claude API 키 |
 | `jah_draft_company` | `string` | [임시] 자소서 생성 중 입력한 회사명 |
 | `jah_draft_position` | `string` | [임시] 자소서 생성 중 입력한 직무 |
 | `jah_draft_question` | `string` | [임시] 자소서 생성 중 입력한 문항 |
@@ -140,7 +146,6 @@ CoverLetter {
   - Claude가 STAR 4개 항목을 분석하여 피드백 제공
   - 상태 표시: ✓ good (충분히 구체적), ⚠ warning (개선 필요 + 예시), ✗ error (필수 보완 필요)
   - 종합 점수(0~100점) 및 완성도 표시
-  - API 키 미설정 시 설정 안내 표시
 - **경험 JSON 내보내기/가져오기** (데이터 백업 및 복구 기능)
 
 ### `/generate` — 자소서 생성기
@@ -176,116 +181,51 @@ CoverLetter {
 - [x] Experiences — STAR 기법 경험 뱅크 (CRUD, 태그, 검색)
 - [x] Generate — 자소서 생성기 (Claude API 연동)
 - [x] CompanyDetail — 회사 상세 + 단계 트래커
-- [x] Claude API 키 localStorage 저장 및 UI 안내
-- [x] CLAUDE.md 자동 업데이트 Stop 훅 설정 (권한 추가: `Edit(CLAUDE.md)`)
-- [x] **[2026-06-09]** 앱 실행 및 localStorage 데이터 유실 문제 분석 (브라우저 캐시 삭제로 인한 전체 삭제 확인)
+- [x] CLAUDE.md 자동 업데이트 Stop 훅 설정
+- [x] **[2026-06-09]** localStorage 데이터 유실 문제 분석 (브라우저 캐시 삭제로 인한 전체 삭제 확인)
 - [x] **[2026-06-09]** 경험 뱅크 JSON 내보내기/가져오기 기능 추가 (데이터 백업 & 복구)
 - [x] **[2026-06-10]** 경험 뱅크 상단 내 프로필 카드 구현 (기본정보, 학력, 기술스택, 자격증/어학 + 완성도 게이지 + 자동 저장)
-- [x] **[2026-06-10]** 자소서 생성 시 프로필 정보 자동 포함 (Claude가 지원자의 학력/기술 스택을 인지하고 더 맥락 있는 글 생성)
+- [x] **[2026-06-10]** 자소서 생성 시 프로필 정보 자동 포함
 - [x] **[2026-06-11]** 경험 카드 AI 피드백 기능 구현 (Claude가 STAR 분석 + 종합 점수 + 완성도 표시)
-- [x] **[2026-06-09]** 자소서 AI 판별 검사 기능 (GPT Killer 페르소나 + 7가지 패턴 탐지 + 점수/등급/개선 예시)
-- [x] **[2026-06-11]** 채용공고 자동완성 기능 테스트 및 동작 확인 (문항 없는 즉시지원 공고의 AI 문항 추천 기능 정상 작동 검증)
+- [x] **[2026-06-11]** 자소서 AI 판별 검사 기능 (GPT Killer 페르소나 + 7가지 패턴 탐지 + 점수/등급/개선 예시)
 - [x] **[2026-06-12]** 자소서 JSON 파싱 오류 수정 (본문에 큰따옴표 포함 시 발생하는 구조화된 출력 오류 해결)
-  - **원인:** 자소서 본문에 큰따옴표(`"`)가 포함되면, Claude의 `quote` 필드가 이스케이프되지 않아 JSON 파싱 실패
-  - **해결:** `parseJsonFromText` 헬퍼에 3단 방어 로직 추가
-    1. 제어 문자 제거 후 재시도
-    2. 이스케이프되지 않은 내부 큰따옴표 수정 후 재시도
-    3. 프롬프트 개선: `quote` 필드에서 큰따옴표 사용 금지, 대신 『』 사용 명시
-- [x] **[2026-06-13]** 채용공고 자동완성 UX 개선 (연속 작성 가능하도록 상태 관리 최적화)
-  - **#1 수정:** 추천 문항 클릭 시 `setExtracted(null)` 초기화 코드 제거
-    - **배경:** Q1을 적용해 자소서를 작성하고 돌아와도 채용공고 자동완성 섹션이 초기화되는 문제
-    - **결과:** 이제 Q1 적용 후 돌아와도 자동완성 섹션이 그대로 열려있어 Q2, Q3을 연속으로 작성 가능
-  - **#2 수정:** 글자수 버튼(500~1000자) 클릭 시 부모의 `targetLength` 즉시 업데이트
-    - **배경:** 글자수 버튼 선택 시 부모 컴포넌트의 슬라이더가 동기화되지 않는 문제
-    - **결과:** 1000자 버튼 클릭 시 지원정보의 목표 글자수 슬라이더도 1000자로 자동 동기화
-- [x] **[2026-06-14]** 자소서 저장 후 확인 패널 기능 완성
-  - **변경사항:**
-    - `saved` boolean 상태를 `savedId` string 상태로 변경 (저장된 자소서 ID 추적)
-    - 저장 버튼 클릭 시 저장된 자소서 ID를 기억하고 버튼 비활성화
-    - 저장 확인 패널: 초록색 배경의 성공 알림 표시
-  - **기능:**
-    - **회사 등록된 경우** → "○○ 상세 페이지" 링크 표시, 클릭 시 해당 회사 페이지로 이동 및 저장된 자소서 목록 확인 가능
-    - **회사 미등록인 경우** → "대시보드에서 해당 회사를 추가하면 모아볼 수 있습니다" 안내 메시지 표시
-    - `useNavigate` 추가로 회사 상세 페이지로의 네비게이션 구현
-- [x] **[2026-06-15]** 자소서 생성 폼 상태 localStorage 유지 개선
-  - **변경사항:**
-    - 자소서 생성 중인 상태 (`useState` → `useLocalStorage`로 변경)
-    - 6개 draft 키 추가: `jah_draft_*` (회사명, 직무, 문항, 목표 글자수, 선택 경험 목록, 본문)
-  - **개선 효과:**
-    - 경험 뱅크나 대시보드로 이동했다가 돌아와도 작성 중이던 내용 유지
-    - 브라우저 탭 전환 후 돌아와도 초기화되지 않음
-    - 브라우저 창 닫고 다시 열어도 작성 중인 자소서 복구 가능
-- [x] **[2026-06-16]** 자소서 생성 UI 기능 개선
-  - **#1 — 자소서 카테고리 표시 기능 추가**
-    - 질문 문구를 키워드로 자동 분류하여 컬러 뱃지 표시 (8가지 카테고리)
-    - 지원동기(🔵), 협업 경험(🟢), 리더십(🟣), 문제해결(🟠), 입사 포부(🔷), 직무역량(🔴), 성장 경험(🩵), 자기소개(🟡)
-    - 카테고리 아래에 질문 원문 한 줄 미리보기 표시
-  - **#2 — 채용공고 자동완성 상태 localStorage 유지 개선**
-    - `mode`, `input`, `extracted`, `suggestedQs`, `suggestLength`, `pendingRating`을 `jah_draft_af_*` 키로 저장
-    - 원본 HTML(`sourceText`)은 용량이 크므로 `useRef`로 세션 내에서만 유지
-    - 결과: 채용공고 입력 후 다른 페이지 이동 후 돌아와도 상태 유지 가능
-- [x] **[2026-06-17]** 회사 상세 페이지 자소서 목록 질문 펼치기/접기 기능 구현
-  - **기능:** 회사 상세 페이지에서 자소서 목록 조회 시 질문이 기본적으로 한 줄(`line-clamp-1`)로 잘려 표시됨
-  - **더보기 버튼:** 질문 텍스트 옆에 **더보기** 버튼으로 전체 질문 표시 가능 (상태 반영)
-  - **자동 확장:** 자소서 내용(▼) 펼칠 때는 질문도 자동으로 전체 표시되고 **더보기** 버튼 숨김
-  - **상태 관리:** `expandedQ` (개별 질문 펼친 상태) 및 `expandedCL` (자소서 펼친 상태) 분리 관리
-- [x] **[2026-06-18]** 경력기술서(Career Description) 기능 구현 완성
-  - **UI:** `/experiences` 탭 프로필 카드 바로 아래에 **🏢 경력기술서** 섹션 추가
-  - **필드:** 회사명(필수), 직위, 직무, 입사일/퇴직일(YYYY-MM), 재직 중 체크박스, 경력사항 자유 기술
-  - **정렬:** 입사일 기준 최신순 자동 정렬
-  - **AI 연동:** 자소서 생성 시 경력기술서 전체가 프롬프트에 포함 → Claude가 지원자의 실제 직무 이력을 참고해 더 정확한 자소서 생성
-  - **데이터:** `jah_careers` localStorage 키 추가 + `CareerDescription` 새 타입 정의
-- [x] **[2026-06-09]** 경력기술서 카드 폰트 크기 정렬 (경험 뱅크 카드와 통일)
-  - **문제:** 경력기술서 카드의 회사명(제목)과 직위·직무·기간(부제목)이 경험 뱅크 카드와 다른 크기로 표시됨
-  - **분석:** 경험 뱅크 카드는 제목이 크기 미지정(기본), 부제목이 `text-sm`
-  - **해결:** 경력기술서 카드에서 제목의 `text-sm` 제거, 부제목을 `text-xs` → `text-sm`으로 변경
-  - **결과:** 두 카드의 타이포그래피가 이제 동일하게 정렬됨
-- [x] **[2026-06-20]** 잡플래닛 평점 소수점 입력 기능 구현 (별 클릭 + 숫자 입력 지원)
-  - **새 컴포넌트:** `StarRating.jsx` — 별 클릭(정수) + 숫자 입력란(소수점) 이중 UI 제공
-  - **동작 방식:**
-    - 별 클릭 → 1~5 정수 입력 (기존 방식)
-    - 숫자 입력란 → `3.7`, `4.2` 등 소수점 직접 입력 후 Enter 또는 포커스 아웃으로 저장
-    - 범위 검증: 0~5 범위 자동 클램프, 소수점 1자리로 반올림
-    - readonly 모드: 표시 전용으로 숫자 텍스트만 표시
-  - **적용 범위:** 대시보드(회사 카드 미리보기), CompanyDetail(기본 정보), Generate(채용공고 자동완성 상단)
-  - **저장:** `company.jobplanetRating` (소수점 지원)
-- [x] **[2026-06-21]** 잡플래닛 평점 소수점 시각화 기능 완성 (별 그라데이션 표현)
-  - **기능:** 소수점 입력 시 별이 해당 비율만큼 색칠되는 시각화
-  - **구현:**
-    - `PartialStar` 컴포넌트 추가: CSS `background-clip: text` + 그라디언트로 구현
-    - 각 별마다 `fill = value - (n-1)` (0~1 범위) 계산
-    - `linear-gradient(to right, 노란색 {fill*100}%, 회색 {fill*100}%)` 적용
-    - 예시: 3.7이면 4번째 별은 70% 노랑 / 30% 회색으로 정확히 렌더링
-  - **동작:** 별 클릭은 여전히 정수 단위, 소수점은 숫자 입력란으로만 입력 가능
-- [x] **[2026-06-09]** AI 문항 추천 글자수 선택 기능 추가 (즉시지원 공고 전용)
-  - 500·600·700·800·900·1000자 버튼 6개 추가
-  - 버튼 선택 시 지원정보 목표 글자수 슬라이더 자동 동기화 (`onLengthChange` prop)
-  - 생성된 문항 끝에 `(공백 포함 N~M자)` 형식으로 범위 명시
-  - 글자수 버튼 변경 시 기존 추천 목록 자동 초기화
-- [x] **[2026-06-09]** 잡플래닛 평점 별 시각화 버그 수정 (CSS 브라우저 호환성)
-  - **문제:** `background-clip: text` 그라디언트 방식이 일부 브라우저에서 직사각형으로 표시
-  - **해결:** 회색 별 위에 노란 별을 `overflow: hidden` + `width: fill%` 클리핑으로 겹치기
-  - **결과:** 모든 브라우저에서 별 모양 유지, 3.5이면 4번째 별이 정확히 절반 노랑
-- [x] **[2026-06-23]** CLAUDE.md 문서화 정확도 향상 (실제 코드와 일치하도록 수정)
-  - **localStorage 키 수정 (6개):** `jah_draft_length`, `jah_draft_exp_ids`, `jah_draft_result`, `jah_draft_af_length`, `jah_draft_af_rating`, `jah_draft_af_input` 실제 코드 키네이밍과 일치
-  - **Profile 필드명 수정:** `desiredRole`→`desiredJob`, `isExperienced`→`careerType`, `techStack`→`skills` 등
-  - **CareerDescription 필드명 수정:** `position`→`jobTitle`, `role`→`jobFunction`, `isWorking`→`isCurrent`
-  - **프로젝트 구조 업데이트:** `ProfileCard.jsx` 컴포넌트 추가
-  - **페이지 기능 설명 최신화:** `/generate`, `/company/:id` 페이지 기능 설명 정확화
-- [x] **[2026-06-24]** GitHub 저장소 준비 및 커밋 완료
-  - **`.gitignore` 업데이트:** `.claude/settings.local.json`, `*.png` (스크린샷) 추가 제외
-  - **커밋:** 세션 전체 기능 추가 및 UI 개선 (commit: 1e8ef5a)
-  - **파일 변경:** 10개 파일 수정, ProfileCard.jsx 신규 생성
-  - **GitHub 연결:** Personal Access Token을 이용한 `git remote add origin` 및 `git push` 방법 안내
+  - **해결:** `parseJsonFromText` 헬퍼에 3단 방어 로직 추가 + `quote` 필드에서 큰따옴표 사용 금지 명시
+- [x] **[2026-06-13]** 채용공고 자동완성 UX 개선 (추천 문항 연속 작성, 글자수 슬라이더 동기화)
+- [x] **[2026-06-14]** 자소서 저장 후 확인 패널 기능 완성 (회사 상세 페이지 링크 포함)
+- [x] **[2026-06-15]** 자소서 생성 폼 상태 localStorage 유지 (`jah_draft_*` 6개 키)
+- [x] **[2026-06-16]** 자소서 카테고리 뱃지(8종) + 채용공고 자동완성 상태 localStorage 유지
+- [x] **[2026-06-17]** 회사 상세 페이지 자소서 목록 질문 더보기/접기 기능
+- [x] **[2026-06-18]** 경력기술서 기능 구현 (회사명/직위/직무/재직기간/경력사항 CRUD + 자소서 프롬프트 포함)
+- [x] **[2026-06-19]** 경력기술서 카드 폰트 크기 정렬 (경험 뱅크 카드와 통일)
+- [x] **[2026-06-20]** 잡플래닛 평점 소수점 입력 + `StarRating.jsx` 컴포넌트 신규 구현
+- [x] **[2026-06-21]** 잡플래닛 평점 소수점 시각화 (`PartialStar` — 두 레이어 오버랩 방식, 브라우저 호환)
+- [x] **[2026-06-22]** AI 문항 추천 글자수 선택 기능 (500~1000자 버튼 6개)
+- [x] **[2026-06-23]** CLAUDE.md 문서화 정확도 향상 (실제 코드와 일치하도록 필드명·키 수정)
+- [x] **[2026-06-09]** GitHub 저장소 생성 및 push 완료
+  - 저장소: https://github.com/key721114-cloud/jobapp
+  - `.gitignore` 업데이트: `.claude/settings.local.json`, `*.png` 추가 제외
+  - 빌드 검증 후 push 완료 (commit: 세션 전체 기능 추가 및 UI 개선)
+- [x] **[2026-06-09]** 서버사이드 API 프록시로 전환 (Vercel 배포 대응)
+  - `api/claude.js`: `ANTHROPIC_API_KEY` 환경변수로 Claude API 서버사이드 호출
+  - `api/proxy.js`: 채용공고 URL 크롤링 서버사이드 프록시 (기존 vite 플러그인 대체)
+  - `vercel.json`: SPA 라우팅 설정
+  - `claudeApi.js`: `apiKey` 파라미터 완전 제거, `/api/claude` 엔드포인트 호출로 변경
+  - `Generate.jsx`: `ApiKeyBanner` 컴포넌트 및 `apiKey` 상태 완전 제거
+  - `Experiences.jsx`: `apiKey` 상태 제거
+  - `storage.js`: `API_KEY` 상수 제거
+  - GitHub push 완료 (commit: 015c952)
 
 ---
 
 ## TODO — 다음 작업 우선순위
 
 ### 🔴 High (핵심 기능 보완)
-- [ ] **GitHub 저장소 연결** — Personal Access Token 발급 후 `git push` 완료
-  - https://github.com/settings/tokens → Generate new token (classic) → `repo` 권한
-  - `git remote add origin https://github.com/[username]/job-app.git && git branch -M main && git push -u origin main`
+- [ ] **🚀 Vercel 배포 완료** — 코드 준비 완료, 환경변수 설정만 남음
+  - [x] `api/claude.js`, `api/proxy.js`, `vercel.json` 생성 완료
+  - [x] GitHub push 완료
+  - [ ] https://vercel.com → Add New Project → `jobapp` 저장소 연결
+  - [ ] Settings → Environment Variables → `ANTHROPIC_API_KEY` = `sk-ant-...` 설정
+  - [ ] Redeploy 실행
 - [ ] **회사/자소서 JSON import/export** — 경험 뱅크는 완료, 회사·자소서 데이터 백업도 추가 필요
 - [ ] **회사별 자소서 연결 개선** — 현재 `company.name` 문자열 매칭 → `company.id` 기반으로 변경
 - [ ] 자소서 생성 스트리밍 응답 (현재 단일 요청 → 실시간 타이핑 효과)
@@ -314,27 +254,15 @@ CoverLetter {
 
 ## 알려진 이슈 🐛
 
-- Claude API를 브라우저에서 직접 호출 (CORS 허용 헤더 `anthropic-dangerous-direct-browser-access` 사용)
-- API 키가 localStorage에 평문 저장됨 (로컬 전용 앱이므로 허용)
-- 자소서와 회사의 연결이 company.name 문자열 매칭으로 취약함
-  - **개선 예정:** [2026-06-14]에 추가 확인 패널에서 연결된 회사를 찾을 때도 문자열 매칭 사용 중 (향후 ID 기반 연결로 개선 필요)
-- **[2026-06-09]** localStorage가 Vite 포트 변경 시 초기화됨 (다른 origin으로 인식 → 5173/5174/5175 포트별 격리)
-  - **원인:** 브라우저 localStorage는 protocol + domain + **port** 기준으로 격리됨
-  - **해결:** DevTools → Application → Local Storage에서 다른 포트의 데이터 확인 후 콘솔로 복구 가능 (위 "localStorage 복구 가이드" 섹션 참고)
-- **[2026-06-09]** 브라우저 캐시 삭제 또는 Windows 저장소 관리(Storage Sense) 자동 실행 시 localStorage 전체 삭제
-  - **원인:** Edge 설정의 "검색 데이터 삭제", Windows Storage Sense, PC 재부팅 후 프라이버시 정리 등으로 인한 의도하지 않은 데이터 제거
-  - **상태:** 복구 불가능 (localStorage는 브라우저 로컬 저장소로 삭제 후 복원 수단 없음)
-  - **해결책:** JSON 백업 기능 구현 완료 (경험 뱅크는 [2026-06-09]에 완료, 회사·자소서는 추후 추가 예정)
-- **[2026-06-09]** AI 판별 검사 시 UI 상태 관리 최적화 필요 (수정 시 검사 결과 자동 초기화 구현 완료)
-- **[2026-06-12]** Claude API 응답 JSON 파싱 오류 시 재시도 로직 추가 (자소서 본문 특수문자 포함 시 발생하던 오류 일부 해결)
-  - **증상:** 특정 자소서 내용(특히 큰따옴표 포함)에서 AI 판별 검사 시 파싱 실패로 검사 불가
-  - **상태:** 3단 방어 로직으로 대부분 해결, 극단적인 케이스는 추가 테스트 필요
-- **[2026-06-22]** ~~잡플래닛 평점 별 시각화에서 `background-clip: text` + 그라디언트 사용 시 일부 브라우저에서 직사각형으로 표시~~
-  - **해결:** 회색 별 위에 노란 별을 `width` 클리핑으로 겹치는 방식으로 변경 완료 (브라우저 호환성 100%)
-- **[2026-06-24]** GitHub CLI 미설치 — 개발 환경에서 `gh` 명령어 사용 불가
-  - **현황:** PowerShell 및 Bash 환경에서 GitHub CLI(gh) 명령어 인식 안 됨
-  - **대체방안:** `git remote add origin` + `git push` 직접 사용 (Personal Access Token 인증)
-  - **영향도:** 낮음 (CLI 없어도 git 기본 명령어로 충분)
+- ~~Claude API를 브라우저에서 직접 호출~~ → **[2026-06-09] 해결:** 서버리스 함수(`api/claude.js`)로 서버사이드 호출로 전환 완료
+- ~~API 키가 localStorage에 평문 저장됨~~ → **[2026-06-09] 해결:** 환경변수(`ANTHROPIC_API_KEY`)로 완전 이전, 프론트엔드에서 API 키 제거
+- 자소서와 회사의 연결이 `company.name` 문자열 매칭으로 취약함 (향후 ID 기반 연결로 개선 필요)
+- **[2026-06-09]** localStorage가 Vite 포트 변경 시 초기화됨 (다른 origin으로 인식 → 5173/5174 포트별 격리)
+  - **해결:** `vite.config.js`에 `strictPort: true` 설정으로 포트 고정
+- **[2026-06-09]** 브라우저 캐시 삭제 시 localStorage 전체 삭제 (복구 불가)
+  - **대책:** JSON 백업 기능 구현 완료 (경험 뱅크), 회사·자소서는 추후 예정
+- **[2026-06-12]** Claude API 응답 JSON 파싱 오류 (큰따옴표 포함 자소서에서 발생)
+  - **상태:** 3단 방어 로직으로 대부분 해결, 극단적 케이스는 추가 테스트 필요
 
 ---
 
@@ -348,20 +276,35 @@ npm run preview  # 빌드 결과 미리보기
 
 ---
 
+## Vercel 배포 가이드
+
+### 1. 프로젝트 연결
+https://vercel.com → Add New Project → `key721114-cloud/jobapp` 선택 → Deploy
+
+### 2. 환경변수 설정 (필수)
+Settings → Environment Variables:
+```
+ANTHROPIC_API_KEY = sk-ant-...
+```
+Production / Preview / Development 모두 체크
+
+### 3. 재배포
+환경변수 저장 후 Redeploy 버튼 클릭 (또는 새 커밋 push 시 자동 재배포)
+
+---
+
 ## localStorage 복구 가이드 (포트 변경 시)
 
 Vite 개발 서버 포트를 변경하면 (`localhost:5173` → `5174` 등) 브라우저가 다른 origin으로 인식해 localStorage가 격리됩니다.
-데이터는 여전히 이전 포트에 남아있으므로 아래 방법으로 복구 가능합니다:
 
 ### 1. DevTools 확인
 ```
-F12 → Application → Storage → Local Storage
-→ 다른 포트 (예: http://localhost:5174) 확인
+F12 → Application → Storage → Local Storage → 다른 포트 확인
 ```
 
 ### 2. 콘솔 명령어로 데이터 추출 (이전 포트 탭에서)
 ```js
-const keys = ['jah_experiences', 'jah_companies', 'jah_cover_letters', 'jah_api_key']
+const keys = ['jah_experiences', 'jah_companies', 'jah_cover_letters', 'jah_profile', 'jah_careers']
 keys.forEach(k => {
   const val = localStorage.getItem(k)
   if (val) console.log(`${k}:`, val)
@@ -370,14 +313,12 @@ keys.forEach(k => {
 
 ### 3. 새 포트 탭에서 복구
 ```js
-// 위에서 복사한 JSON을 붙여넣기
 localStorage.setItem('jah_experiences', '여기에 JSON 붙여넣기')
 localStorage.setItem('jah_companies', '...')
 localStorage.setItem('jah_cover_letters', '...')
-localStorage.setItem('jah_api_key', '...')
 ```
 
 ### 4. 페이지 새로고침
 ```
-Ctrl+R (또는 Cmd+R)
+Ctrl+R
 ```

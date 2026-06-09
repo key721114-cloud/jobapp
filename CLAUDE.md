@@ -1,6 +1,6 @@
 # 취준 도우미 (Job Application Helper)
 
-> **Last Updated:** 2026-06-23 (세션 종료 시 자동 업데이트)
+> **Last Updated:** 2026-06-24 (세션 종료 시 자동 업데이트)
 > 이 파일은 세션 종료 시 자동으로 업데이트됩니다.
 
 ---
@@ -272,12 +272,20 @@ CoverLetter {
   - **CareerDescription 필드명 수정:** `position`→`jobTitle`, `role`→`jobFunction`, `isWorking`→`isCurrent`
   - **프로젝트 구조 업데이트:** `ProfileCard.jsx` 컴포넌트 추가
   - **페이지 기능 설명 최신화:** `/generate`, `/company/:id` 페이지 기능 설명 정확화
+- [x] **[2026-06-24]** GitHub 저장소 준비 및 커밋 완료
+  - **`.gitignore` 업데이트:** `.claude/settings.local.json`, `*.png` (스크린샷) 추가 제외
+  - **커밋:** 세션 전체 기능 추가 및 UI 개선 (commit: 1e8ef5a)
+  - **파일 변경:** 10개 파일 수정, ProfileCard.jsx 신규 생성
+  - **GitHub 연결:** Personal Access Token을 이용한 `git remote add origin` 및 `git push` 방법 안내
 
 ---
 
 ## TODO — 다음 작업 우선순위
 
 ### 🔴 High (핵심 기능 보완)
+- [ ] **GitHub 저장소 연결** — Personal Access Token 발급 후 `git push` 완료
+  - https://github.com/settings/tokens → Generate new token (classic) → `repo` 권한
+  - `git remote add origin https://github.com/[username]/job-app.git && git branch -M main && git push -u origin main`
 - [ ] **회사/자소서 JSON import/export** — 경험 뱅크는 완료, 회사·자소서 데이터 백업도 추가 필요
 - [ ] **회사별 자소서 연결 개선** — 현재 `company.name` 문자열 매칭 → `company.id` 기반으로 변경
 - [ ] 자소서 생성 스트리밍 응답 (현재 단일 요청 → 실시간 타이핑 효과)
@@ -323,6 +331,10 @@ CoverLetter {
   - **상태:** 3단 방어 로직으로 대부분 해결, 극단적인 케이스는 추가 테스트 필요
 - **[2026-06-22]** ~~잡플래닛 평점 별 시각화에서 `background-clip: text` + 그라디언트 사용 시 일부 브라우저에서 직사각형으로 표시~~
   - **해결:** 회색 별 위에 노란 별을 `width` 클리핑으로 겹치는 방식으로 변경 완료 (브라우저 호환성 100%)
+- **[2026-06-24]** GitHub CLI 미설치 — 개발 환경에서 `gh` 명령어 사용 불가
+  - **현황:** PowerShell 및 Bash 환경에서 GitHub CLI(gh) 명령어 인식 안 됨
+  - **대체방안:** `git remote add origin` + `git push` 직접 사용 (Personal Access Token 인증)
+  - **영향도:** 낮음 (CLI 없어도 git 기본 명령어로 충분)
 
 ---
 

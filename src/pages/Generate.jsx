@@ -22,44 +22,9 @@ function jobplanetUrl(companyName) {
   return `https://www.jobplanet.co.kr/search?query=${encodeURIComponent(cleanCompanyName(companyName))}`
 }
 
-function ApiKeyBanner({ apiKey, onChange }) {
-  const [show, setShow] = useState(false)
-  const [input, setInput] = useState('')
-
-  if (apiKey) return null
-
-  return (
-    <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-      <p className="text-sm font-semibold text-amber-800">⚠️ Claude API 키가 필요합니다</p>
-      <p className="text-xs text-amber-600 mt-1 mb-3">자소서 생성을 위해 Anthropic API 키를 입력하세요</p>
-      <div className="flex gap-2">
-        <input
-          type={show ? 'text' : 'password'}
-          className="flex-1 border border-amber-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
-          placeholder="sk-ant-..."
-          value={input}
-          onChange={e => setInput(e.target.value)}
-        />
-        <button
-          onClick={() => setShow(s => !s)}
-          className="px-3 py-1.5 border border-amber-300 rounded-lg text-xs text-amber-700 hover:bg-amber-100"
-        >
-          {show ? '숨김' : '표시'}
-        </button>
-        <button
-          onClick={() => { if (input) onChange(input) }}
-          className="px-4 py-1.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700"
-        >
-          저장
-        </button>
-      </div>
-    </div>
-  )
-}
-
 const PROXY_FAIL_MSG = '채용포털이 외부 접근을 차단했습니다. 아래 텍스트 모드로 공고 내용을 직접 붙여넣어 주세요.'
 
-function JobAutoFill({ apiKey, onFill, onLengthChange, companies, setCompanies, formRef }) {
+function JobAutoFill({ onFill, onLengthChange, companies, setCompanies, formRef }) {
   const [mode, setMode] = useLocalStorage('jah_draft_af_mode', 'url')
   const [input, setInput] = useLocalStorage('jah_draft_af_input', '')
   const [extracted, setExtracted] = useLocalStorage('jah_draft_af_extracted', null)
@@ -74,7 +39,6 @@ function JobAutoFill({ apiKey, onFill, onLengthChange, companies, setCompanies, 
   const isUrl = /^https?:\/\//i.test(input.trim())
 
   const handleExtract = async () => {
-    if (!apiKey) { setError('API 키를 먼저 입력해주세요'); return }
     if (!input.trim()) return
     setLoading(true)
     setError('')
@@ -82,7 +46,7 @@ function JobAutoFill({ apiKey, onFill, onLengthChange, companies, setCompanies, 
     setPendingRating(0)
     setSuggestedQs([])
     try {
-      const result = await extractJobInfo({ apiKey, input: input.trim() })
+      const result = await extractJobInfo({ input: input.trim() })
       const { sourceText, ...rest } = result
       sourceTextRef.current = sourceText ?? ''
       setExtracted(rest)
@@ -114,7 +78,6 @@ function JobAutoFill({ apiKey, onFill, onLengthChange, companies, setCompanies, 
     setSuggestedQs([])
     try {
       const qs = await suggestQuestions({
-        apiKey,
         company: extracted.company,
         position: extracted.position,
         sourceText: sourceTextRef.current,
@@ -391,7 +354,6 @@ export default function Generate() {
   const [experiences] = useLocalStorage('jah_experiences', [])
   const [companies, setCompanies] = useLocalStorage('jah_companies', [])
   const [coverLetters, setCoverLetters] = useLocalStorage('jah_cover_letters', [])
-  const [apiKey, setApiKey] = useLocalStorage('jah_api_key', import.meta.env.VITE_DEMO_API_KEY || '')
   const [profile] = useLocalStorage('jah_profile', null)
   const [careers] = useLocalStorage('jah_careers', [])
 
@@ -424,7 +386,6 @@ export default function Generate() {
   const selectedExps = experiences.filter(e => selectedExpIds.includes(e.id))
 
   const handleGenerate = async () => {
-    if (!apiKey) { setError('API 키를 먼저 입력해주세요'); return }
     if (!company || !position || !question) { setError('회사명, 직무, 문항을 모두 입력해주세요'); return }
     if (selectedExpIds.length === 0) { setError('최소 1개의 경험을 선택해주세요'); return }
 
@@ -435,7 +396,7 @@ export default function Generate() {
     setDetection(null)
 
     try {
-      const text = await generateCoverLetter({ apiKey, company, position, question, experiences: selectedExps, targetLength, profile, careers })
+      const text = await generateCoverLetter({ company, position, question, experiences: selectedExps, targetLength, profile, careers })
       setResult(text)
     } catch (e) {
       setError(`생성 실패: ${e.message}`)
@@ -469,7 +430,7 @@ export default function Generate() {
     setDetecting(true)
     setDetection(null)
     try {
-      const res = await analyzeAiDetection({ apiKey, text: result })
+      const res = await analyzeAiDetection({ text: result })
       setDetection(res)
     } catch (e) {
       setError(`AI 판별 실패: ${e.message}`)
@@ -485,8 +446,7 @@ export default function Generate() {
         <p className="text-sm text-gray-500 mt-0.5">경험을 선택하고 Claude AI로 자소서를 생성하세요</p>
       </div>
 
-      <ApiKeyBanner apiKey={apiKey} onChange={setApiKey} />
-      <JobAutoFill apiKey={apiKey} onFill={handleAutoFill} onLengthChange={setTargetLength} companies={companies} setCompanies={setCompanies} formRef={formRef} />
+      <JobAutoFill onFill={handleAutoFill} onLengthChange={setTargetLength} companies={companies} setCompanies={setCompanies} formRef={formRef} />
 
       <div ref={formRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 좌측: 입력 */}

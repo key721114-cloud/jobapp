@@ -370,7 +370,6 @@ function ExperienceModal({ initial, onClose, onSave }) {
 
 export default function Experiences() {
   const [experiences, setExperiences] = useLocalStorage('jah_experiences', [])
-  const [apiKey] = useLocalStorage('jah_api_key', '')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [activeTag, setActiveTag] = useState(null)
@@ -380,10 +379,9 @@ export default function Experiences() {
   const [loadingId, setLoadingId] = useState(null)
 
   const handleAnalyze = async (exp) => {
-    if (!apiKey) { alert('자소서 생성기에서 API 키를 먼저 설정해주세요.'); return }
     setLoadingId(exp.id)
     try {
-      const result = await analyzeExperience({ apiKey, exp })
+      const result = await analyzeExperience({ exp })
       setFeedbacks(prev => ({ ...prev, [exp.id]: result }))
     } catch (e) {
       alert(`분석 실패: ${e.message}`)

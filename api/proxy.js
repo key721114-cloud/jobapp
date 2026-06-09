@@ -1,8 +1,7 @@
 export default async function handler(req, res) {
   const targetUrl = req.query?.url
   if (!targetUrl) {
-    res.status(400).json({ error: 'url 파라미터 필요' })
-    return
+    return res.status(400).json({ error: 'url 파라미터 필요' })
   }
 
   try {
@@ -20,14 +19,13 @@ export default async function handler(req, res) {
     })
 
     if (!response.ok) {
-      res.status(response.status).json({ error: `포털 응답 오류: ${response.status}` })
-      return
+      return res.status(response.status).json({ error: `포털 응답 오류: ${response.status}` })
     }
 
     const html = await response.text()
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.status(200).json({ contents: html })
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    return res.status(200).json({ contents: html, status: response.status })
   } catch (e) {
-    res.status(500).json({ error: e.message })
+    return res.status(500).json({ error: e.message })
   }
 }

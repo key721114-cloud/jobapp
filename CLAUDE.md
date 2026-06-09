@@ -1,6 +1,6 @@
 # 취준 도우미 (Job Application Helper)
 
-> **Last Updated:** 2026-06-09 (세션 종료 시 자동 업데이트)
+> **Last Updated:** 2026-06-10 (세션 종료 시 자동 업데이트)
 > 이 파일은 세션 종료 시 자동으로 업데이트됩니다.
 
 ---
@@ -214,17 +214,23 @@ CoverLetter {
   - `Experiences.jsx`: `apiKey` 상태 제거
   - `storage.js`: `API_KEY` 상수 제거
   - GitHub push 완료 (commit: 015c952)
+- [x] **[2026-06-10]** GitHub 저장소 및 Vercel 배포 준비 완료
+  - 저장소: https://github.com/key721114-cloud/jobapp
+  - 모든 서버리스 함수 (`api/claude.js`, `api/proxy.js`) 완료
+  - 프론트엔드 API 키 입력 UI 완전 제거 (보안 강화)
+  - `vercel.json` SPA 라우팅 설정 완료
+  - GitHub push 완료 (세션 기간 중 모든 변경사항 반영)
 
 ---
 
 ## TODO — 다음 작업 우선순위
 
 ### 🔴 High (핵심 기능 보완)
-- [ ] **🚀 Vercel 배포 완료** — 코드 준비 완료, 환경변수 설정만 남음
+- [ ] **🚀 Vercel 배포 최종 단계** — 코드/GitHub 준비 완료, 환경변수 설정만 남음
   - [x] `api/claude.js`, `api/proxy.js`, `vercel.json` 생성 완료
-  - [x] GitHub push 완료
+  - [x] GitHub push 완료 (`https://github.com/key721114-cloud/jobapp`)
   - [ ] https://vercel.com → Add New Project → `jobapp` 저장소 연결
-  - [ ] Settings → Environment Variables → `ANTHROPIC_API_KEY` = `sk-ant-...` 설정
+  - [ ] Settings → Environment Variables → `ANTHROPIC_API_KEY` = `sk-ant-...` 설정 (필수)
   - [ ] Redeploy 실행
 - [ ] **회사/자소서 JSON import/export** — 경험 뱅크는 완료, 회사·자소서 데이터 백업도 추가 필요
 - [ ] **회사별 자소서 연결 개선** — 현재 `company.name` 문자열 매칭 → `company.id` 기반으로 변경
@@ -249,6 +255,28 @@ CoverLetter {
 - [ ] 키워드 분석 (자소서에서 자주 쓴 단어 시각화)
 - [ ] PWA 설정 (오프라인 지원)
 - [ ] 경력기술서 import/export (경험 뱅크와 동일한 JSON 백업)
+
+---
+
+## 배포 후 확인 체크리스트 ✓
+
+Vercel 배포 후 아래 사항 확인:
+
+1. [ ] 서버리스 함수 정상 작동
+   - [ ] `/api/claude` 엔드포인트 호출 성공
+   - [ ] `/api/proxy` 채용공고 크롤링 정상
+   - [ ] `ANTHROPIC_API_KEY` 환경변수 인식 확인
+
+2. [ ] 프론트엔드 기능 검증
+   - [ ] 자소서 생성 정상 작동
+   - [ ] 경험 AI 피드백 정상 작동
+   - [ ] 채용공고 자동완성 정상 작동
+   - [ ] 자소서 AI 판별 검사 정상 작동
+
+3. [ ] 보안 확인
+   - [ ] API 키가 브라우저에 노출되지 않음 (네트워크 탭 확인)
+   - [ ] CORS 설정 정상
+   - [ ] 서버리스 함수에서만 Claude API 호출
 
 ---
 

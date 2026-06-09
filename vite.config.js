@@ -48,4 +48,8 @@ function jobProxyPlugin() {
 
 export default defineConfig({
   plugins: [react(), jobProxyPlugin()],
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
 })

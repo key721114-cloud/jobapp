@@ -21,6 +21,45 @@ function jobplanetUrl(name) {
   return `https://www.jobplanet.co.kr/search?query=${encodeURIComponent(cleanCompanyName(name))}`
 }
 
+const CATEGORY_RULES = [
+  { pattern: /지원\s*동기|관심\s*갖게|선택한\s*이유|지원하게\s*된|귀사/, label: '지원동기' },
+  { pattern: /협업|팀워크|팀\s*프로젝트|갈등|함께|소통|커뮤니케이션/, label: '협업 경험' },
+  { pattern: /리더|주도|이끌|팀장/, label: '리더십' },
+  { pattern: /문제\s*해결|극복|위기|어려움|도전|실패/, label: '문제해결' },
+  { pattern: /성장|배움|학습|발전|깨달/, label: '성장 경험' },
+  { pattern: /포부|목표|입사\s*후|비전|이루고자|기여/, label: '입사 포부' },
+  { pattern: /역량|강점|전문성|직무\s*경험|보유한/, label: '직무역량' },
+  { pattern: /자기\s*소개|본인|가치관|성격|장단점/, label: '자기소개' },
+]
+
+function deriveCategory(question) {
+  for (const { pattern, label } of CATEGORY_RULES) {
+    if (pattern.test(question)) return label
+  }
+  return question.slice(0, 14) + (question.length > 14 ? '…' : '')
+}
+
+const CATEGORY_COLORS = {
+  '지원동기':   'bg-blue-50 text-blue-700 border-blue-200',
+  '협업 경험':  'bg-green-50 text-green-700 border-green-200',
+  '리더십':     'bg-purple-50 text-purple-700 border-purple-200',
+  '문제해결':   'bg-orange-50 text-orange-700 border-orange-200',
+  '성장 경험':  'bg-teal-50 text-teal-700 border-teal-200',
+  '입사 포부':  'bg-indigo-50 text-indigo-700 border-indigo-200',
+  '직무역량':   'bg-rose-50 text-rose-700 border-rose-200',
+  '자기소개':   'bg-yellow-50 text-yellow-700 border-yellow-200',
+}
+
+function CategoryBadge({ question }) {
+  const label = deriveCategory(question)
+  const color = CATEGORY_COLORS[label] ?? 'bg-gray-100 text-gray-600 border-gray-200'
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold border ${color}`}>
+      {label}
+    </span>
+  )
+}
+
 function getDday(deadline) {
   if (!deadline) return null
   return Math.ceil((new Date(deadline) - new Date()) / (1000 * 60 * 60 * 24))
@@ -32,6 +71,7 @@ export default function CompanyDetail() {
   const [companies, setCompanies] = useLocalStorage('jah_companies', [])
   const [coverLetters] = useLocalStorage('jah_cover_letters', [])
   const [expandedCL, setExpandedCL] = useState(null)
+  const [expandedQ, setExpandedQ] = useState(null)
 
   const company = companies.find(c => c.id === id)
 
@@ -219,10 +259,23 @@ export default function CompanyDetail() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800 line-clamp-1">{cl.question}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {cl.content.length}자 · {new Date(cl.createdAt).toLocaleDateString('ko-KR')}
+                          <div className="flex items-center gap-2 mb-1">
+                            <CategoryBadge question={cl.question} />
+                            <span className="text-xs text-gray-400">
+                              {cl.content.length}자 · {new Date(cl.createdAt).toLocaleDateString('ko-KR')}
+                            </span>
+                          </div>
+                          <p className={`text-xs text-gray-500 ${expandedQ === cl.id || expandedCL === cl.id ? '' : 'line-clamp-1'}`}>
+                            {cl.question}
                           </p>
+                          {expandedCL !== cl.id && (
+                            <button
+                              onClick={e => { e.stopPropagation(); setExpandedQ(expandedQ === cl.id ? null : cl.id) }}
+                              className="text-xs text-indigo-500 hover:text-indigo-700 mt-0.5"
+                            >
+                              {expandedQ === cl.id ? '접기' : '더보기'}
+                            </button>
+                          )}
                         </div>
                         <span className="text-gray-400 text-sm">{expandedCL === cl.id ? '▲' : '▼'}</span>
                       </div>

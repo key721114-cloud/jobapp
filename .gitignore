@@ -3,3 +3,9 @@ dist
 .env
 .env.local
 .env*.local
+
+# 로컬 전용 설정 (권한/훅 정보)
+.claude/settings.local.json
+
+# 스크린샷
+*.png

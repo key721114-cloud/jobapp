@@ -3,6 +3,8 @@ export const KEYS = {
   COMPANIES: 'jah_companies',
   COVER_LETTERS: 'jah_cover_letters',
   API_KEY: 'jah_api_key',
+  PROFILE: 'jah_profile',
+  CAREERS: 'jah_careers',
 }
 
 export function getItem(key) {

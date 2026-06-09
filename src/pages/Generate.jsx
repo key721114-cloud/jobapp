@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLocalStorage } from '../hooks/useLocalStorage'
-import { generateCoverLetter, extractJobInfo, suggestQuestions } from '../utils/claudeApi'
+import { generateCoverLetter, extractJobInfo, suggestQuestions, analyzeAiDetection } from '../utils/claudeApi'
 import TagBadge from '../components/TagBadge'
 import StarRating from '../components/StarRating'
 import { generateId } from '../utils/storage'
@@ -58,15 +59,17 @@ function ApiKeyBanner({ apiKey, onChange }) {
 
 const PROXY_FAIL_MSG = '채용포털이 외부 접근을 차단했습니다. 아래 텍스트 모드로 공고 내용을 직접 붙여넣어 주세요.'
 
-function JobAutoFill({ apiKey, onFill, companies, setCompanies, formRef }) {
-  const [mode, setMode] = useState('url')   // 'url' | 'text'
-  const [input, setInput] = useState('')
+function JobAutoFill({ apiKey, onFill, onLengthChange, companies, setCompanies, formRef }) {
+  const [mode, setMode] = useLocalStorage('jah_draft_af_mode', 'url')
+  const [input, setInput] = useLocalStorage('jah_draft_af_input', '')
+  const [extracted, setExtracted] = useLocalStorage('jah_draft_af_extracted', null)
+  const [pendingRating, setPendingRating] = useLocalStorage('jah_draft_af_rating', 0)
+  const [suggestedQs, setSuggestedQs] = useLocalStorage('jah_draft_af_suggested', [])
+  const [suggestLength, setSuggestLength] = useLocalStorage('jah_draft_af_length', 500)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [extracted, setExtracted] = useState(null)
-  const [pendingRating, setPendingRating] = useState(0)
-  const [suggestedQs, setSuggestedQs] = useState([])
   const [suggesting, setSuggesting] = useState(false)
+  const sourceTextRef = useRef(extracted?.sourceText ?? '')
 
   const isUrl = /^https?:\/\//i.test(input.trim())
 
@@ -80,7 +83,9 @@ function JobAutoFill({ apiKey, onFill, companies, setCompanies, formRef }) {
     setSuggestedQs([])
     try {
       const result = await extractJobInfo({ apiKey, input: input.trim() })
-      setExtracted(result)
+      const { sourceText, ...rest } = result
+      sourceTextRef.current = sourceText ?? ''
+      setExtracted(rest)
       const existing = companies.find(c => c.name === result.company)
       if (existing?.jobplanetRating) setPendingRating(existing.jobplanetRating)
     } catch (e) {
@@ -112,7 +117,8 @@ function JobAutoFill({ apiKey, onFill, companies, setCompanies, formRef }) {
         apiKey,
         company: extracted.company,
         position: extracted.position,
-        sourceText: extracted.sourceText,
+        sourceText: sourceTextRef.current,
+        targetLength: suggestLength,
       })
       setSuggestedQs(qs)
     } catch (e) {
@@ -124,9 +130,6 @@ function JobAutoFill({ apiKey, onFill, companies, setCompanies, formRef }) {
 
   const handleApply = (q) => {
     onFill({ company: extracted.company, position: extracted.position, question: q })
-    setExtracted(null)
-    setInput('')
-    setSuggestedQs([])
     setTimeout(() => formRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
 
@@ -244,25 +247,43 @@ function JobAutoFill({ apiKey, onFill, companies, setCompanies, formRef }) {
             </>
           ) : (
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-400">즉시지원 공고 — 별도 자소서 문항이 없습니다</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleApply('')}
-                    className="px-2.5 py-1 border border-gray-300 text-gray-600 text-xs rounded-lg hover:bg-gray-50"
-                  >
-                    직접 입력
-                  </button>
-                  <button
-                    onClick={handleSuggest}
-                    disabled={suggesting}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    {suggesting
-                      ? <><span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />추천 중...</>
-                      : <>✨ AI 문항 추천</>}
-                  </button>
+              <p className="text-xs text-gray-400 mb-2">즉시지원 공고 — 별도 자소서 문항이 없습니다</p>
+
+              {/* 글자수 선택 */}
+              <div className="mb-2">
+                <p className="text-xs font-medium text-gray-500 mb-1.5">문항 글자수 선택</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {[500, 600, 700, 800, 900, 1000].map(len => (
+                    <button
+                      key={len}
+                      onClick={() => { setSuggestLength(len); setSuggestedQs([]); onLengthChange?.(len) }}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all
+                        ${suggestLength === len
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'}`}
+                    >
+                      {len}자
+                    </button>
+                  ))}
                 </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => handleApply('')}
+                  className="px-2.5 py-1 border border-gray-300 text-gray-600 text-xs rounded-lg hover:bg-gray-50"
+                >
+                  직접 입력
+                </button>
+                <button
+                  onClick={handleSuggest}
+                  disabled={suggesting}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {suggesting
+                    ? <><span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />추천 중...</>
+                    : <>✨ AI 문항 추천</>}
+                </button>
               </div>
 
               {suggestedQs.length > 0 && (
@@ -289,21 +310,102 @@ function JobAutoFill({ apiKey, onFill, companies, setCompanies, formRef }) {
   )
 }
 
+const VERDICT_CONFIG = {
+  safe:       { label: '통과 가능',      bg: 'bg-green-50',  border: 'border-green-300', text: 'text-green-700', bar: 'bg-green-500',  icon: '🛡️' },
+  suspicious: { label: '일부 의심 패턴', bg: 'bg-amber-50',  border: 'border-amber-300', text: 'text-amber-700', bar: 'bg-amber-400',  icon: '⚠️' },
+  flagged:    { label: 'AI 판별 위험',   bg: 'bg-rose-50',   border: 'border-rose-300',  text: 'text-rose-700',  bar: 'bg-rose-500',   icon: '🚨' },
+}
+const SEVERITY_COLOR = {
+  high:   { badge: 'bg-rose-100 text-rose-700 border-rose-200',   dot: 'bg-rose-500'  },
+  medium: { badge: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
+  low:    { badge: 'bg-gray-100 text-gray-600 border-gray-200',    dot: 'bg-gray-400'  },
+}
+const SEVERITY_LABEL = { high: '높음', medium: '중간', low: '낮음' }
+
+function AiDetectionPanel({ detection }) {
+  const cfg = VERDICT_CONFIG[detection.verdict] ?? VERDICT_CONFIG.suspicious
+  return (
+    <div className={`mt-4 rounded-xl border ${cfg.border} overflow-hidden`}>
+      {/* 헤더 */}
+      <div className={`${cfg.bg} px-4 py-3`}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-base">{cfg.icon}</span>
+            <span className={`text-sm font-bold ${cfg.text}`}>GPT Killer 판별 결과 — {cfg.label}</span>
+          </div>
+          <span className={`text-lg font-black ${cfg.text}`}>{detection.score}점</span>
+        </div>
+        <div className="w-full h-2 bg-white/60 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${cfg.bar}`}
+            style={{ width: `${detection.score}%` }}
+          />
+        </div>
+        <p className={`mt-2 text-xs ${cfg.text} opacity-80`}>{detection.summary}</p>
+      </div>
+
+      {/* 패턴 목록 */}
+      {detection.patterns?.length > 0 && (
+        <div className="divide-y divide-gray-100 bg-white">
+          {detection.patterns.map((p, i) => {
+            const sc = SEVERITY_COLOR[p.severity] ?? SEVERITY_COLOR.medium
+            return (
+              <div key={i} className="p-4">
+                <div className="flex items-start gap-2 mb-1.5">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${sc.badge} flex-shrink-0`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
+                    {SEVERITY_LABEL[p.severity]}
+                  </span>
+                  <p className="text-xs text-gray-500 leading-relaxed">{p.reason}</p>
+                </div>
+                {p.quote && (
+                  <blockquote className="my-1.5 pl-3 border-l-2 border-gray-300 text-xs text-gray-500 italic">
+                    "{p.quote}"
+                  </blockquote>
+                )}
+                {p.suggestion && (
+                  <div className="mt-1.5 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <p className="text-xs text-indigo-700 leading-relaxed">
+                      <span className="font-semibold">개선 예시 →</span> {p.suggestion}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {detection.patterns?.length === 0 && (
+        <div className="bg-white px-4 py-6 text-center">
+          <p className="text-sm text-green-600 font-medium">감지된 AI 패턴이 없습니다.</p>
+          <p className="text-xs text-gray-400 mt-1">자연스러운 인간적 표현으로 잘 작성되었습니다.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Generate() {
+  const navigate = useNavigate()
   const [experiences] = useLocalStorage('jah_experiences', [])
   const [companies, setCompanies] = useLocalStorage('jah_companies', [])
   const [coverLetters, setCoverLetters] = useLocalStorage('jah_cover_letters', [])
   const [apiKey, setApiKey] = useLocalStorage('jah_api_key', import.meta.env.VITE_DEMO_API_KEY || '')
+  const [profile] = useLocalStorage('jah_profile', null)
+  const [careers] = useLocalStorage('jah_careers', [])
 
-  const [company, setCompany] = useState('')
-  const [position, setPosition] = useState('')
-  const [question, setQuestion] = useState('')
-  const [targetLength, setTargetLength] = useState(500)
-  const [selectedExpIds, setSelectedExpIds] = useState([])
-  const [result, setResult] = useState('')
+  const [company, setCompany] = useLocalStorage('jah_draft_company', '')
+  const [position, setPosition] = useLocalStorage('jah_draft_position', '')
+  const [question, setQuestion] = useLocalStorage('jah_draft_question', '')
+  const [targetLength, setTargetLength] = useLocalStorage('jah_draft_length', 500)
+  const [selectedExpIds, setSelectedExpIds] = useLocalStorage('jah_draft_exp_ids', [])
+  const [result, setResult] = useLocalStorage('jah_draft_result', '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [saved, setSaved] = useState(false)
+  const [savedId, setSavedId] = useState(null)
+  const [detection, setDetection] = useState(null)
+  const [detecting, setDetecting] = useState(false)
 
   const formRef = useRef(null)
 
@@ -329,10 +431,11 @@ export default function Generate() {
     setLoading(true)
     setError('')
     setResult('')
-    setSaved(false)
+    setSavedId(null)
+    setDetection(null)
 
     try {
-      const text = await generateCoverLetter({ apiKey, company, position, question, experiences: selectedExps, targetLength })
+      const text = await generateCoverLetter({ apiKey, company, position, question, experiences: selectedExps, targetLength, profile, careers })
       setResult(text)
     } catch (e) {
       setError(`생성 실패: ${e.message}`)
@@ -342,8 +445,9 @@ export default function Generate() {
   }
 
   const handleSave = () => {
+    const id = generateId()
     const cl = {
-      id: generateId(),
+      id,
       company,
       position,
       question,
@@ -353,11 +457,25 @@ export default function Generate() {
       createdAt: new Date().toISOString(),
     }
     setCoverLetters(prev => [...prev, cl])
-    setSaved(true)
+    setSavedId(id)
   }
 
   const handleCopy = () => {
     navigator.clipboard.writeText(result)
+  }
+
+  const handleDetect = async () => {
+    if (!result) return
+    setDetecting(true)
+    setDetection(null)
+    try {
+      const res = await analyzeAiDetection({ apiKey, text: result })
+      setDetection(res)
+    } catch (e) {
+      setError(`AI 판별 실패: ${e.message}`)
+    } finally {
+      setDetecting(false)
+    }
   }
 
   return (
@@ -368,7 +486,7 @@ export default function Generate() {
       </div>
 
       <ApiKeyBanner apiKey={apiKey} onChange={setApiKey} />
-      <JobAutoFill apiKey={apiKey} onFill={handleAutoFill} companies={companies} setCompanies={setCompanies} formRef={formRef} />
+      <JobAutoFill apiKey={apiKey} onFill={handleAutoFill} onLengthChange={setTargetLength} companies={companies} setCompanies={setCompanies} formRef={formRef} />
 
       <div ref={formRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 좌측: 입력 */}
@@ -515,23 +633,61 @@ export default function Generate() {
               <textarea
                 className="flex-1 min-h-80 w-full border border-gray-200 rounded-lg p-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 value={result}
-                onChange={e => setResult(e.target.value)}
+                onChange={e => { setResult(e.target.value); setDetection(null) }}
               />
-              <div className="mt-3 flex gap-2">
-                <div className="flex-1 text-xs text-gray-400 flex items-center">
+              <div className="mt-3 flex gap-2 flex-wrap">
+                <div className="flex-1 text-xs text-gray-400 flex items-center min-w-0">
                   직접 수정 가능합니다
                 </div>
+                <button
+                  onClick={handleDetect}
+                  disabled={detecting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-medium hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {detecting
+                    ? <><span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />판별 중...</>
+                    : <>🔍 AI 판별 검사{detection ? ` · ${detection.score}점` : ''}</>}
+                </button>
                 <button onClick={handleCopy} className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium hover:bg-gray-50">
                   복사
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saved}
+                  disabled={!!savedId}
                   className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 disabled:opacity-60"
                 >
-                  {saved ? '저장됨 ✓' : '저장'}
+                  {savedId ? '저장됨 ✓' : '저장'}
                 </button>
               </div>
+
+              {savedId && (() => {
+                const linkedCompany = companies.find(c => c.name === company)
+                return (
+                  <div className="mt-3 flex items-start gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+                    <span className="text-green-500 text-lg leading-none mt-0.5">✓</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-green-800">자소서가 저장됐습니다</p>
+                      {linkedCompany ? (
+                        <p className="text-xs text-green-600 mt-0.5">
+                          <button
+                            onClick={() => navigate(`/company/${linkedCompany.id}`)}
+                            className="underline hover:text-green-800 font-medium"
+                          >
+                            {linkedCompany.name} 상세 페이지
+                          </button>
+                          에서 저장된 자소서 전체 목록을 확인할 수 있습니다.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-green-600 mt-0.5">
+                          대시보드에서 해당 회사를 추가하면 회사 상세 페이지에서 자소서를 모아볼 수 있습니다.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {detection && <AiDetectionPanel detection={detection} />}
             </>
           ) : (
             <div className="flex-1 min-h-80 flex flex-col items-center justify-center text-gray-400">

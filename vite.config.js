@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { request as httpsRequest } from 'node:https'
 
 // Vite dev server에서 Node.js가 직접 채용포털을 fetch → CORS 없음
 function jobProxyPlugin() {
@@ -9,11 +10,14 @@ function jobProxyPlugin() {
       server.middlewares.use('/api/proxy', async (req, res) => {
         try {
           const qs = new URL(req.url, 'http://localhost')
-          const targetUrl = qs.searchParams.get('url')
-          if (!targetUrl) {
+          const rawUrl = qs.searchParams.get('url')
+          if (!rawUrl) {
             res.statusCode = 400
             return res.end(JSON.stringify({ error: 'url 파라미터 필요' }))
           }
+
+          // URL 정규화: 한국어 등 비ASCII 문자를 percent-encode
+          const targetUrl = new URL(rawUrl).href
 
           const response = await fetch(targetUrl, {
             headers: {
@@ -46,7 +50,7 @@ function jobProxyPlugin() {
   }
 }
 
-// 개발 서버에서 Claude API를 직접 호출 (.env.local의 ANTHROPIC_API_KEY 사용)
+// 개발 서버에서 Claude API를 직접 호출 — node:https로 undici ByteString 이슈 완전 우회
 function claudeApiPlugin(apiKey) {
   return {
     name: 'claude-api',
@@ -78,20 +82,40 @@ function claudeApiPlugin(apiKey) {
             }
             if (system) reqBody.system = system
 
-            const bodyBuf = Buffer.from(JSON.stringify(reqBody), 'utf-8')
-            const response = await fetch('https://api.anthropic.com/v1/messages', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'Content-Length': String(bodyBuf.length),
-              },
-              body: bodyBuf,
+            const jsonStr = JSON.stringify(reqBody)
+
+            const { statusCode, data } = await new Promise((resolve, reject) => {
+              const chunks = []
+              const r = httpsRequest(
+                {
+                  hostname: 'api.anthropic.com',
+                  path: '/v1/messages',
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(jsonStr, 'utf-8'),
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                  },
+                },
+                (response) => {
+                  response.on('data', c => chunks.push(c))
+                  response.on('end', () => {
+                    try {
+                      const text = Buffer.concat(chunks).toString('utf-8')
+                      resolve({ statusCode: response.statusCode, data: JSON.parse(text) })
+                    } catch {
+                      reject(new Error('Claude API 응답 파싱 실패'))
+                    }
+                  })
+                },
+              )
+              r.on('error', reject)
+              r.write(jsonStr)
+              r.end()
             })
 
-            const data = await response.json()
-            res.statusCode = response.status
+            res.statusCode = statusCode
             res.setHeader('Content-Type', 'application/json; charset=utf-8')
             res.end(JSON.stringify(data))
           } catch (e) {

@@ -1,3 +1,5 @@
+import { request as httpsRequest } from 'node:https'
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -11,27 +13,47 @@ export default async function handler(req, res) {
   try {
     const { messages, model, max_tokens, system } = req.body
 
-    const body = {
+    const requestBody = {
       model: model || 'claude-sonnet-4-6',
       max_tokens: max_tokens || 1024,
       messages,
     }
-    if (system) body.system = system
+    if (system) requestBody.system = system
 
-    const bodyBuf = Buffer.from(JSON.stringify(body), 'utf-8')
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Length': String(bodyBuf.length),
-      },
-      body: bodyBuf,
+    const jsonStr = JSON.stringify(requestBody)
+
+    const { statusCode, responseJson } = await new Promise((resolve, reject) => {
+      const chunks = []
+      const r = httpsRequest(
+        {
+          hostname: 'api.anthropic.com',
+          path: '/v1/messages',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(jsonStr, 'utf-8'),
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+        },
+        (response) => {
+          response.on('data', (chunk) => chunks.push(chunk))
+          response.on('end', () => {
+            try {
+              const text = Buffer.concat(chunks).toString('utf-8')
+              resolve({ statusCode: response.statusCode, responseJson: JSON.parse(text) })
+            } catch {
+              reject(new Error('Claude API 응답 파싱 실패'))
+            }
+          })
+        },
+      )
+      r.on('error', reject)
+      r.write(jsonStr)
+      r.end()
     })
 
-    const data = await response.json()
-    return res.status(response.status).json(data)
+    return res.status(statusCode).json(responseJson)
   } catch (e) {
     return res.status(500).json({ error: e.message })
   }

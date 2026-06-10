@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLocalStorage } from '../hooks/useLocalStorage'
-import { generateCoverLetter, extractJobInfo, suggestQuestions, analyzeAiDetection } from '../utils/claudeApi'
+import { generateCoverLetter, extractJobInfo, suggestQuestions, analyzeAiDetection, recommendExperiences } from '../utils/claudeApi'
 import TagBadge from '../components/TagBadge'
 import StarRating from '../components/StarRating'
 import { generateId } from '../utils/storage'
@@ -368,6 +368,9 @@ export default function Generate() {
   const [savedId, setSavedId] = useState(null)
   const [detection, setDetection] = useState(null)
   const [detecting, setDetecting] = useState(false)
+  const [resetKey, setResetKey] = useState(0)
+  const [recommendations, setRecommendations] = useState({})
+  const [recommending, setRecommending] = useState(false)
 
   const formRef = useRef(null)
 
@@ -425,6 +428,42 @@ export default function Generate() {
     navigator.clipboard.writeText(result)
   }
 
+  const handleReset = () => {
+    if (!window.confirm('입력한 내용을 모두 초기화하시겠습니까?')) return
+    setCompany('')
+    setPosition('')
+    setQuestion('')
+    setTargetLength(500)
+    setSelectedExpIds([])
+    setResult('')
+    setError('')
+    setSavedId(null)
+    setDetection(null)
+    setRecommendations({})
+    const afKeys = ['jah_draft_af_mode', 'jah_draft_af_input', 'jah_draft_af_extracted',
+      'jah_draft_af_suggested', 'jah_draft_af_length', 'jah_draft_af_rating']
+    afKeys.forEach(k => localStorage.removeItem(k))
+    setResetKey(k => k + 1)
+  }
+
+  const handleRecommend = async () => {
+    if (!question) return
+    setRecommending(true)
+    setRecommendations({})
+    try {
+      const { recommended } = await recommendExperiences({ question, company, position, experiences })
+      const map = {}
+      recommended.forEach(({ index, reason }) => {
+        if (experiences[index]) map[experiences[index].id] = reason
+      })
+      setRecommendations(map)
+    } catch (e) {
+      setError(`추천 실패: ${e.message}`)
+    } finally {
+      setRecommending(false)
+    }
+  }
+
   const handleDetect = async () => {
     if (!result) return
     setDetecting(true)
@@ -441,12 +480,20 @@ export default function Generate() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">자소서 생성기</h1>
-        <p className="text-sm text-gray-500 mt-0.5">경험을 선택하고 Claude AI로 자소서를 생성하세요</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">자소서 생성기</h1>
+          <p className="text-sm text-gray-500 mt-0.5">경험을 선택하고 Claude AI로 자소서를 생성하세요</p>
+        </div>
+        <button
+          onClick={handleReset}
+          className="mt-1 px-3 py-1.5 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-red-500 hover:border-red-300 transition-colors"
+        >
+          🗑️ 초기화
+        </button>
       </div>
 
-      <JobAutoFill onFill={handleAutoFill} onLengthChange={setTargetLength} companies={companies} setCompanies={setCompanies} formRef={formRef} />
+      <JobAutoFill key={resetKey} onFill={handleAutoFill} onLengthChange={setTargetLength} companies={companies} setCompanies={setCompanies} formRef={formRef} />
 
       <div ref={formRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 좌측: 입력 */}
@@ -519,31 +566,75 @@ export default function Generate() {
 
           {/* 경험 선택 */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="font-semibold text-gray-800 mb-1">💼 활용할 경험 선택 *</h2>
-            <p className="text-xs text-gray-400 mb-3">선택한 경험을 바탕으로 자소서를 생성합니다</p>
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="font-semibold text-gray-800">💼 활용할 경험 선택 *</h2>
+              {experiences.length > 0 && question && (
+                <button
+                  onClick={handleRecommend}
+                  disabled={recommending}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-violet-600 text-white text-xs rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {recommending
+                    ? <><span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />분석 중...</>
+                    : <>✨ AI 추천</>}
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mb-3">
+              선택한 경험을 바탕으로 자소서를 생성합니다
+              {!question && experiences.length > 0 && <span className="ml-1 text-violet-400">— 문항을 입력하면 AI 추천을 받을 수 있어요</span>}
+            </p>
+
+            {Object.keys(recommendations).length > 0 && (
+              <div className="mb-3 flex items-center justify-between px-3 py-2 bg-violet-50 border border-violet-200 rounded-lg">
+                <p className="text-xs text-violet-700 font-medium">
+                  ✨ {Object.keys(recommendations).length}개 경험 추천됨 — 보라색으로 표시됩니다
+                </p>
+                <button
+                  onClick={() => {
+                    const recIds = Object.keys(recommendations)
+                    setSelectedExpIds(prev => [...new Set([...prev, ...recIds])])
+                  }}
+                  className="text-xs text-violet-600 hover:text-violet-800 font-medium underline"
+                >
+                  추천 모두 선택
+                </button>
+              </div>
+            )}
 
             {experiences.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-6">
                 저장된 경험이 없습니다. 먼저 경험 뱅크에 경험을 추가하세요.
               </p>
             ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-72 overflow-y-auto">
                 {experiences.map(exp => {
                   const selected = selectedExpIds.includes(exp.id)
+                  const rec = recommendations[exp.id]
                   return (
                     <button
                       key={exp.id}
                       onClick={() => toggleExp(exp.id)}
                       className={`w-full text-left p-3 rounded-lg border transition-all
-                        ${selected ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
+                        ${selected
+                          ? 'border-indigo-400 bg-indigo-50'
+                          : rec
+                            ? 'border-violet-300 bg-violet-50 hover:border-violet-400'
+                            : 'border-gray-200 hover:border-gray-300'}`}
                     >
                       <div className="flex items-start gap-2">
                         <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 mt-0.5
-                          ${selected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
+                          ${selected ? 'bg-indigo-600 border-indigo-600' : rec ? 'border-violet-400' : 'border-gray-300'}`}>
                           {selected && <span className="text-white text-xs leading-none">✓</span>}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">{exp.title}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-medium text-gray-800 truncate">{exp.title}</p>
+                            {rec && (
+                              <span className="flex-shrink-0 text-xs px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-full font-medium">✨ 추천</span>
+                            )}
+                          </div>
+                          {rec && <p className="text-xs text-violet-600 mt-0.5">{rec}</p>}
                           <p className="text-xs text-gray-500 truncate mt-0.5">{exp.result}</p>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {exp.tags?.map(t => <TagBadge key={t} tag={t} />)}

@@ -18,14 +18,16 @@ export default async function handler(req, res) {
     }
     if (system) body.system = system
 
+    const bodyBuf = Buffer.from(JSON.stringify(body), 'utf-8')
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'Content-Length': String(bodyBuf.length),
       },
-      body: JSON.stringify(body),
+      body: bodyBuf,
     })
 
     const data = await response.json()

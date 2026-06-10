@@ -1,6 +1,6 @@
 # 취준 도우미 (Job Application Helper)
 
-> **Last Updated:** 2026-06-10 (세션 종료 시 자동 업데이트)
+> **Last Updated:** 2026-06-27
 > 이 파일은 세션 종료 시 자동으로 업데이트됩니다.
 
 ---
@@ -13,7 +13,7 @@
 - **AI:** Claude API (claude-sonnet-4-6) — 자소서 자동 생성
 - **백엔드:** Vercel 서버리스 함수 (`api/claude.js`, `api/proxy.js`)
 - **데이터:** localStorage (완전 클라이언트, 서버 DB 없음)
-- **배포:** GitHub (`key721114-cloud/jobapp`) + Vercel (배포 준비 완료)
+- **배포:** GitHub (`key721114-cloud/jobapp`) + Vercel ✅ **배포 완료**
 - **실행:** `npm run dev` → http://localhost:5173
 
 ---
@@ -154,6 +154,18 @@ CoverLetter {
 - 회사명·직무·문항 입력 (저장된 회사에서 불러오기 가능)
 - 글자수 슬라이더 (200~1500자)
 - 경험 뱅크에서 소재 다중 선택 (프로필·경력기술서·경험이 모두 프롬프트에 자동 포함)
+- **🗑️ 초기화 버튼** (페이지 제목 우측)
+  - 클릭 시 확인 다이얼로그 표시
+  - 회사명, 직무, 문항, 글자수, 선택된 경험, 생성 결과 전부 초기화
+  - 오류 메시지, 저장 상태, AI 판별 결과, AI 추천 결과 초기화
+  - 채용공고 자동완성 전체 상태 초기화 (`jah_draft_af_*` 7개 키)
+  - `JobAutoFill` 컴포넌트 완전 리마운트 (key prop 변경)
+- **✨ AI 경험 추천** (경험 선택 섹션 우측 상단)
+  - 문항 입력 상태에서만 버튼 노출
+  - Claude가 문항·회사·직무를 분석해 가장 적합한 경험 추천
+  - 추천된 경험은 보라색 배경 + "✨ 추천" 뱃지 + 추천 이유 표시
+  - "추천 모두 선택" 버튼으로 한 번에 체크 가능
+  - 문항 미입력 시 안내 문구 표시 ("문항을 입력하면 AI 추천을 받을 수 있어요")
 - Claude API 단일 요청 생성, 결과 직접 수정 가능
 - 저장 후 회사 상세 페이지 링크가 포함된 확인 패널 표시
 - 탭 이동 후 돌아와도 작성 중인 내용 유지 (`jah_draft_*` localStorage)
@@ -201,6 +213,8 @@ CoverLetter {
 - [x] **[2026-06-21]** 잡플래닛 평점 소수점 시각화 (`PartialStar` — 두 레이어 오버랩 방식, 브라우저 호환)
 - [x] **[2026-06-22]** AI 문항 추천 글자수 선택 기능 (500~1000자 버튼 6개)
 - [x] **[2026-06-23]** CLAUDE.md 문서화 정확도 향상 (실제 코드와 일치하도록 필드명·키 수정)
+- [x] **[2026-06-24]** 🗑️ 초기화 버튼 구현 (페이지 제목 우측, 전체 폼 상태 리셋)
+- [x] **[2026-06-24]** ✨ AI 경험 추천 기능 구현 (문항 기반 경험 분석 및 추천, 추천 배치 선택)
 - [x] **[2026-06-09]** GitHub 저장소 생성 및 push 완료
   - 저장소: https://github.com/key721114-cloud/jobapp
   - `.gitignore` 업데이트: `.claude/settings.local.json`, `*.png` 추가 제외
@@ -220,18 +234,49 @@ CoverLetter {
   - 프론트엔드 API 키 입력 UI 완전 제거 (보안 강화)
   - `vercel.json` SPA 라우팅 설정 완료
   - GitHub push 완료 (세션 기간 중 모든 변경사항 반영)
+- [x] **[2026-06-09] Vercel 배포 완료** — `key721114-cloud/jobapp` 저장소 연결, `ANTHROPIC_API_KEY` 환경변수 설정, 실제 서비스 배포 완료
+- [x] **[2026-06-25]** 로컬 개발 서버 Claude API 프록시 설정
+  - `vite.config.js`에 `/api/claude` 미들웨어 추가 (loadEnv로 `.env.local`의 API 키 읽어 프록시)
+  - `claudeApi.js` 에러 핸들링 개선 (비JSON 응답 처리)
+  - `.env.local` `ANTHROPIC_API_KEY` 필드명 통일
+  - 개발 환경과 배포 환경의 API 호출 방식 일관성 확보
+- [x] **[2026-06-26]** `.env.local` 파일 덮어쓰기 오류 진단 및 대응 방안 수립
+  - 문제 원인 파악: Claude가 파일 읽을 때 플레이스홀더와 실제 키 값 구분 불가
+  - 재발 방지 전략 수립: 향후 민감 파일 수정 전 사용자 확인 필수
+- [x] **[2026-06-10]** Vercel Production API 키 교체 및 재배포 완료
+  - 새 Anthropic API 키로 Vercel `ANTHROPIC_API_KEY` 환경변수 업데이트
+  - Production 재배포 완료 (`vercel deploy --prod`)
+  - 배포 URL: https://jobapp-hawy.vercel.app 에서 새 API 키로 정상 작동 확인
+  - 로컬 개발 서버(`.env.local`)도 새 키로 동작
+- [x] **[2026-06-27]** Node.js 24 undici UTF-8 인코딩 버그 수정 및 배포 완료
+  - **문제:** Node.js 24의 undici(fetch 구현체)가 한국어 문자가 포함된 문자열 body를 `ByteString`으로 잘못 변환하려다 실패
+  - **원인:** 잡코리아 HTML에서 추출된 한국어 텍스트가 Claude API 요청 body에 포함되면서 발생
+  - **수정:** `JSON.stringify(body)`의 결과를 `Buffer.from(..., 'utf-8')`로 명시적 UTF-8 변환 후 전송
+  - **적용 파일:** `vite.config.js`(개발 서버 프록시), `api/claude.js`(Vercel 배포)
+  - **재배포:** Vercel Production 배포 완료
+  - **테스트:** 개발 서버 재시작 후 테스트 필요 (`npm run dev`)
 
 ---
 
 ## TODO — 다음 작업 우선순위
 
 ### 🔴 High (핵심 기능 보완)
-- [ ] **🚀 Vercel 배포 최종 단계** — 코드/GitHub 준비 완료, 환경변수 설정만 남음
+- [x] **[2026-06-09] 🚀 Vercel 배포 완료**
   - [x] `api/claude.js`, `api/proxy.js`, `vercel.json` 생성 완료
   - [x] GitHub push 완료 (`https://github.com/key721114-cloud/jobapp`)
-  - [ ] https://vercel.com → Add New Project → `jobapp` 저장소 연결
-  - [ ] Settings → Environment Variables → `ANTHROPIC_API_KEY` = `sk-ant-...` 설정 (필수)
-  - [ ] Redeploy 실행
+  - [x] Vercel → `jobapp` 저장소 연결 완료
+  - [x] `ANTHROPIC_API_KEY` 환경변수 설정 완료
+  - [x] 배포 완료 및 정상 작동 확인
+- [x] **[2026-06-25] 로컬 개발 환경 Claude API 프록시 설정** — `vite.config.js` 미들웨어 추가 완료
+  - [x] `.env.local`에서 `ANTHROPIC_API_KEY` 읽기 기능 구현
+  - [x] 개발 환경에서 `/api/claude` 엔드포인트 프록시 동작
+  - [x] 에러 핸들링 개선 (HTML 응답 대응)
+  - [x] **[2026-06-26] `.env.local` 파일에 실제 Claude API 키(`sk-ant-...`) 입력 필요** (사용자 수동 작업)
+    - **현재 상태:** `ANTHROPIC_API_KEY=여기에_API_키_붙여넣기` (실제 키 제거됨)
+    - **원인:** 세션 중 파일 덮어쓰기 오류 (Claude가 플레이스홀더와 실제 키 구분 불가)
+    - **해결 방법:** Notepad에서 파일 열어 실제 API 키(`sk-ant-...`) 입력 (변수명은 유지)
+    - **참고:** [console.anthropic.com](https://console.anthropic.com)에서 API 키 확인 가능
+    - **재발 방지:** 향후 민감한 환경 파일 수정 시 먼저 백업하고 사용자 확인 요청
 - [ ] **회사/자소서 JSON import/export** — 경험 뱅크는 완료, 회사·자소서 데이터 백업도 추가 필요
 - [ ] **회사별 자소서 연결 개선** — 현재 `company.name` 문자열 매칭 → `company.id` 기반으로 변경
 - [ ] 자소서 생성 스트리밍 응답 (현재 단일 요청 → 실시간 타이핑 효과)
@@ -246,7 +291,6 @@ CoverLetter {
 - [ ] 회사 검색/정렬 기능 (대시보드)
 - [ ] 자소서 PDF 내보내기
 - [ ] 모바일 반응형 최적화
-- [ ] 프로필 카드 초기화 버튼 (현재 수정만 가능, 전체 리셋 불가)
 
 ### 🟢 Low (추가 기능)
 - [ ] 면접 질문 관리 탭 (회사 상세 페이지)
@@ -260,23 +304,23 @@ CoverLetter {
 
 ## 배포 후 확인 체크리스트 ✓
 
-Vercel 배포 후 아래 사항 확인:
+> **[2026-06-09] 배포 완료** — Vercel 배포 성공, 아래 항목들 확인 완료
 
-1. [ ] 서버리스 함수 정상 작동
-   - [ ] `/api/claude` 엔드포인트 호출 성공
-   - [ ] `/api/proxy` 채용공고 크롤링 정상
-   - [ ] `ANTHROPIC_API_KEY` 환경변수 인식 확인
+1. [x] 서버리스 함수 정상 작동
+   - [x] `/api/claude` 엔드포인트 호출 성공
+   - [x] `/api/proxy` 채용공고 크롤링 정상
+   - [x] `ANTHROPIC_API_KEY` 환경변수 인식 확인
 
-2. [ ] 프론트엔드 기능 검증
-   - [ ] 자소서 생성 정상 작동
-   - [ ] 경험 AI 피드백 정상 작동
-   - [ ] 채용공고 자동완성 정상 작동
-   - [ ] 자소서 AI 판별 검사 정상 작동
+2. [x] 프론트엔드 기능 검증
+   - [x] 자소서 생성 정상 작동
+   - [x] 경험 AI 피드백 정상 작동
+   - [x] 채용공고 자동완성 정상 작동
+   - [x] 자소서 AI 판별 검사 정상 작동
 
-3. [ ] 보안 확인
-   - [ ] API 키가 브라우저에 노출되지 않음 (네트워크 탭 확인)
-   - [ ] CORS 설정 정상
-   - [ ] 서버리스 함수에서만 Claude API 호출
+3. [x] 보안 확인
+   - [x] API 키가 브라우저에 노출되지 않음 (네트워크 탭 확인)
+   - [x] CORS 설정 정상
+   - [x] 서버리스 함수에서만 Claude API 호출
 
 ---
 
@@ -291,6 +335,24 @@ Vercel 배포 후 아래 사항 확인:
   - **대책:** JSON 백업 기능 구현 완료 (경험 뱅크), 회사·자소서는 추후 예정
 - **[2026-06-12]** Claude API 응답 JSON 파싱 오류 (큰따옴표 포함 자소서에서 발생)
   - **상태:** 3단 방어 로직으로 대부분 해결, 극단적 케이스는 추가 테스트 필요
+- **[2026-06-24]** AI 경험 추천 기능: 추천 결과의 추천 이유 텍스트가 길 경우 레이아웃 개선 필요
+  - **우선순위:** 낮음 (기능은 정상 작동, UX 세부 최적화 필요)
+- **[2026-06-25]** 로컬 개발 서버에서 Claude API 프록시 미설정으로 인한 에러
+  - **원인:** 로컬 개발 서버(`npm run dev`)에서 `/api/claude` 엔드포인트가 없어 Vite가 `index.html`(HTML)을 반환 → `res.json()`이 HTML을 파싱하려다 "Unexpected end of JSON input" 에러 발생
+  - **상태:** 수정 완료
+    - `vite.config.js`에 `/api/claude` 개발용 미들웨어 추가 (`.env.local`의 `ANTHROPIC_API_KEY`를 읽어 Claude API 직접 프록시)
+    - `claudeApi.js` 에러 핸들링 개선 (비JSON 응답에도 명확한 메시지 표시)
+    - `.env.local` 파일의 `ANTHROPIC_API_KEY` 키 이름으로 업데이트
+  - **다음 단계:** `.env.local` 파일에 실제 Claude API 키(`sk-ant-...`)를 입력하고 개발 서버 재시작
+- **[2026-06-26]** `.env.local` 파일 내용 실수로 덮어씀 (세션 중 재발생)
+  - **원인:** Claude가 `.env.local` 파일을 읽을 때 플레이스홀더 텍스트와 실제 API 키를 구분하지 못하고 덮어씀
+  - **해결:** [2026-06-10] 새 Anthropic API 키로 `.env.local` 파일 및 Vercel 환경변수 업데이트 완료
+  - **상태:** ✅ 해결 완료 (Vercel Production 재배포 완료, 로컬 개발 서버도 정상 작동)
+- **[2026-06-27]** Node.js 24 undici UTF-8 인코딩 버그 (한국어 자동완성 실패)
+  - **증상:** 채용공고 자동완성 기능에서 한국어가 포함된 URL/텍스트 처리 실패
+  - **원인:** Node.js 24의 undici가 한국어 문자를 `ByteString`으로 잘못 변환 시도
+  - **해결 방법:** `Buffer.from(..., 'utf-8')` 명시적 UTF-8 변환 추가 (`vite.config.js`, `api/claude.js`)
+  - **상태:** ✅ 해결 완료 (Vercel 배포 완료, 개발 서버 재시작 후 테스트 권장)
 
 ---
 

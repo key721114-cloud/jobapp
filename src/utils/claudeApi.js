@@ -18,6 +18,17 @@ function parseJsonFromText(text) {
   }
 }
 
+async function parseErrorResponse(res) {
+  const text = await res.text().catch(() => '')
+  try {
+    const err = JSON.parse(text)
+    return err.error?.message || err.error || `오류 (${res.status})`
+  } catch {
+    if (res.status === 404 || res.status === 0) return 'Claude API에 연결할 수 없습니다. 개발 서버를 재시작하거나 .env.local에 ANTHROPIC_API_KEY를 설정하세요.'
+    return `Claude API 오류 (${res.status})`
+  }
+}
+
 function callClaude(prompt, maxTokens = 1024, system = null) {
   const body = {
     model: 'claude-sonnet-4-6',
@@ -45,34 +56,38 @@ function stripHtml(html) {
 
 async function fetchViaProxy(url) {
   try {
-    const localRes = await fetch(
-      `/api/proxy?url=${encodeURIComponent(url)}`,
-      { signal: AbortSignal.timeout(12000) }
-    )
-    if (localRes.ok) {
-      const data = await localRes.json()
-      if (data?.contents && data.contents.length > 500) return data.contents
-    }
-  } catch {
-    // fallback to external proxies
-  }
-
-  const externalProxies = [
-    `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-  ]
-  for (const proxy of externalProxies) {
     try {
-      const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) })
-      if (!res.ok) continue
-      const data = await res.json().catch(() => null)
-      const html = data?.contents ?? (typeof data === 'string' ? data : null)
-      if (html && html.length > 500) return html
+      const localRes = await fetch(
+        `/api/proxy?url=${encodeURIComponent(url)}`,
+        { signal: AbortSignal.timeout(12000) }
+      )
+      if (localRes.ok) {
+        const data = await localRes.json()
+        if (data?.contents && data.contents.length > 500) return data.contents
+      }
     } catch {
-      continue
+      // fallback to external proxies
     }
+
+    const externalProxies = [
+      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    ]
+    for (const proxy of externalProxies) {
+      try {
+        const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) })
+        if (!res.ok) continue
+        const data = await res.json().catch(() => null)
+        const html = data?.contents ?? (typeof data === 'string' ? data : null)
+        if (html && html.length > 500) return html
+      } catch {
+        continue
+      }
+    }
+    return null
+  } catch {
+    return null
   }
-  return null
 }
 
 export async function extractJobInfo({ input }) {
@@ -99,10 +114,7 @@ ${rawText}
 {"company":"...","position":"...","questions":["문항1","문항2"]}`
 
   const res = await callClaude(prompt, 1024)
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.error?.message || err.error || '파싱 실패')
-  }
+  if (!res.ok) throw new Error(await parseErrorResponse(res))
 
   const text = (await res.json()).content[0].text.trim()
   return { ...parseJsonFromText(text), sourceText: rawText }
@@ -127,10 +139,7 @@ ${sourceText ? `\n공고 내용:\n${sourceText.slice(0, 4000)}` : ''}
 ["문항1 (공백 포함 ${minLength}~${targetLength}자)","문항2 (공백 포함 ${minLength}~${targetLength}자)",...]`
 
   const res = await callClaude(prompt, 1024)
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.error?.message || err.error || '추천 실패')
-  }
+  if (!res.ok) throw new Error(await parseErrorResponse(res))
 
   const text = (await res.json()).content[0].text.trim()
   const match = text.match(/\[[\s\S]*\]/)
@@ -185,12 +194,46 @@ ${text}
 verdict 기준: safe=0~35 (통과 가능), suspicious=36~65 (일부 의심), flagged=66~100 (AI 판별 위험)`
 
   const res = await callClaude(prompt, 2048, system)
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.error?.message || err.error || '분석 실패')
-  }
+  if (!res.ok) throw new Error(await parseErrorResponse(res))
   const raw = (await res.json()).content[0].text.trim()
   return parseJsonFromText(raw)
+}
+
+export async function recommendExperiences({ question, company, position, experiences }) {
+  if (!experiences?.length) throw new Error('경험이 없습니다')
+
+  const expList = experiences
+    .map((exp, i) => [
+      `[${i}] ${exp.title}`,
+      `태그: ${exp.tags?.join(', ') || '없음'}`,
+      exp.situation ? `S: ${exp.situation.slice(0, 150)}` : null,
+      exp.action ? `A: ${exp.action.slice(0, 150)}` : null,
+      exp.result ? `R: ${exp.result.slice(0, 100)}` : null,
+    ].filter(Boolean).join('\n'))
+    .join('\n\n')
+
+  const prompt = `아래 자소서 문항에 가장 적합한 경험들을 추천해주세요.
+
+[지원 정보]
+회사: ${company || '미입력'}
+직무: ${position || '미입력'}
+
+[자소서 문항]
+${question}
+
+[경험 목록]
+${expList}
+
+위 경험 목록 중 이 자소서 문항과 관련성 높은 경험들을 선택하고, 추천 이유를 한 줄로 작성하세요.
+반드시 JSON 형식으로만 응답하세요. 다른 텍스트는 출력하지 마세요.
+
+응답 형식:
+{"recommended":[{"index":0,"reason":"추천 이유"},{"index":2,"reason":"추천 이유"}]}`
+
+  const res = await callClaude(prompt, 1024)
+  if (!res.ok) throw new Error(await parseErrorResponse(res))
+  const text = (await res.json()).content[0].text.trim()
+  return parseJsonFromText(text)
 }
 
 export async function analyzeExperience({ exp }) {
@@ -226,10 +269,7 @@ R(결과): ${exp.result || '(미작성)'}
 }`
 
   const res = await callClaude(prompt, 1024)
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.error?.message || err.error || '분석 실패')
-  }
+  if (!res.ok) throw new Error(await parseErrorResponse(res))
   const text = (await res.json()).content[0].text.trim()
   return parseJsonFromText(text)
 }
@@ -267,7 +307,7 @@ function buildCareerText(careers) {
   return `[경력기술서]\n${lines}`
 }
 
-export async function generateCoverLetter({ company, position, question, experiences, targetLength, profile, careers }) {
+export async function generateCoverLetter({ company, position, question, experiences, targetLength, profile, careers, existingCoverLetters = [] }) {
   const experienceText = experiences
     .map((exp, i) => `[경험 ${i + 1}] ${exp.title}
 - 상황(S): ${exp.situation}
@@ -293,6 +333,9 @@ export async function generateCoverLetter({ company, position, question, experie
 - 기승전결이 교과서처럼 완벽한 3단 구성을 지양할 것
 
 2. 내용 기준
+- 경험의 배경(언제·어디서·어떤 역할로)을 도입 1~2문장 안에 자연스럽게 포함할 것
+  예) "A기관에서 B사업을 담당하던 2023년", "C팀 팀장으로서 3년간"
+  독자가 상황을 이해할 수 있는 최소한의 시점·조직·역할 정보는 생략하지 말 것
 - 모든 성과 문장에는 반드시 수치를 포함할 것
   수치가 없으면 그 성과 문장은 쓰지 말 것
 - 추상적 미덕 나열 금지
@@ -314,7 +357,15 @@ export async function generateCoverLetter({ company, position, question, experie
 "다발적 이슈에 대한 유연한 위기 관리로 연간 734회의 집합 교육을 안정적으로 운영하고, 교육 매출 약 18억 원을 달성했습니다.(KPI 125%)"
 "3년간 정부 위탁사업을 운영하며 민원 발생 0건이라는 기록을 달성했습니다."`
 
-  const prompt = `${profileText ? profileText + '\n\n' : ''}${careerText ? careerText + '\n\n' : ''}[지원 정보]
+  const existingClText = existingCoverLetters.length > 0
+    ? `[이미 작성 완료된 자소서 — 아래 소재·사례와 중복 금지]\n${
+        existingCoverLetters.slice(-5).map((cl) =>
+          `▷ 문항: ${cl.question}\n내용: ${cl.content.slice(0, 500)}`
+        ).join('\n\n')
+      }\n\n위 자소서에서 이미 쓴 경험, 수치, 사례를 이번 답변에 다시 사용하지 마세요. 선택된 경험 소재 안에서 다른 측면이나 다른 에피소드를 발굴하세요.\n`
+    : ''
+
+  const prompt = `${profileText ? profileText + '\n\n' : ''}${careerText ? careerText + '\n\n' : ''}${existingClText ? existingClText + '\n' : ''}[지원 정보]
 - 회사명: ${company}
 - 직무: ${position}
 
@@ -329,10 +380,7 @@ ${experienceText}
 
   const response = await callClaude(prompt, 4096, system)
 
-  if (!response.ok) {
-    const err = await response.json()
-    throw new Error(err.error?.message || err.error || '생성 실패')
-  }
+  if (!response.ok) throw new Error(await parseErrorResponse(response))
 
   const data = await response.json()
   return data.content[0].text

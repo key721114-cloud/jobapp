@@ -399,7 +399,8 @@ export default function Generate() {
     setDetection(null)
 
     try {
-      const text = await generateCoverLetter({ company, position, question, experiences: selectedExps, targetLength, profile, careers })
+      const existingCoverLetters = coverLetters.filter(cl => cl.company === company)
+      const text = await generateCoverLetter({ company, position, question, experiences: selectedExps, targetLength, profile, careers, existingCoverLetters })
       setResult(text)
     } catch (e) {
       setError(`생성 실패: ${e.message}`)

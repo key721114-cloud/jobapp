@@ -132,7 +132,7 @@ function claudeApiPlugin(apiKey) {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
-    plugins: [react(), jobProxyPlugin(), claudeApiPlugin(env.ANTHROPIC_API_KEY)],
+    plugins: [react(), jobProxyPlugin(), claudeApiPlugin((env.ANTHROPIC_API_KEY || '').trim())],
     server: {
       port: 5173,
       strictPort: true,
